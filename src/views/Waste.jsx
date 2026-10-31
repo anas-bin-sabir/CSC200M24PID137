@@ -25,6 +25,7 @@ export default function WasteView({ waste, viewModel }) {
             card={card}
             viewModel={viewModel}
             source="waste"
+            draggable={index === visibleCards.length - 1}
             isHint={
               hintedCard &&
               hintedCard.suit === card.suit &&

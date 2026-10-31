@@ -26,6 +26,7 @@ export default class GameViewModel {
   dispose() {
     this.controller.stopTimer();
     clearTimeout(this.hintTimer);
+    clearTimeout(this.errorTimer);
   }
 
   handleGameWin() {
@@ -44,11 +45,19 @@ export default class GameViewModel {
   }
 
   /** --- ERROR HANDLING --- */
+  // Shown by BoardView; clears itself after 2 seconds.
+  // Callers run updateState() afterwards to display it.
   setError(message) {
+    clearTimeout(this.errorTimer);
     this.errorMessage = message;
+    this.errorTimer = setTimeout(() => {
+      this.errorMessage = null;
+      this.updateState();
+    }, 2000);
   }
 
   clearError() {
+    clearTimeout(this.errorTimer);
     this.errorMessage = null;
   }
 
@@ -75,6 +84,7 @@ export default class GameViewModel {
       time: this.controller.time,
       progress: Math.floor((completedCards / 52) * 100),
       hint: this.hint ?? null,
+      errorMessage: this.errorMessage,
       showVictoryModal: this.showVictoryModal,
     };
   }
@@ -88,6 +98,7 @@ export default class GameViewModel {
     this.showVictoryModal = false;
     this.hint = null;
     this.clearSelection();
+    this.clearError();
     this.controller.startNewGame();
     this.updateState();
   }
@@ -162,7 +173,7 @@ export default class GameViewModel {
   provideHint() {
     const { tableau, foundation, waste } = this.controller.getState();
 
-    const visibleWaste = waste.slice(-3); // top 3 visible cards
+    const visibleWaste = waste.slice(-1); // only the top waste card is playable
 
     // Containers for moves by priority
     const wasteToFoundation = [];

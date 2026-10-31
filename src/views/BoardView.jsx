@@ -64,6 +64,15 @@ export default function BoardView({ viewModel }) {
           <Tableau tableau={state.tableau} viewModel={viewModel} />
         </div>
 
+        {state.errorMessage && (
+          <div
+            role="alert"
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 px-5 py-2 rounded-xl bg-red-700/90 text-white shadow-lg"
+          >
+            {state.errorMessage}
+          </div>
+        )}
+
         {/* Victory Modal */}
         {showVictoryModal && (
           <>

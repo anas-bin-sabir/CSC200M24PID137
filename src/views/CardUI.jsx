@@ -9,12 +9,13 @@ export default function CardUI({
   stack = [card],
   source = "tableau",
   isHint = false,
+  draggable = true,
 }) {
   // Hooks must run on every render, so the null check comes after them.
   const dragItem = useMemo(() => {
-    if (!card?.faceUp) return null;
+    if (!card?.faceUp || !draggable) return null;
     return { type: "CARD", card, cards: stack, fromCol: columnIndex, source };
-  }, [card, stack, columnIndex, source]);
+  }, [card, stack, columnIndex, source, draggable]);
 
   // Enable dragging
   const [{ isDragging }, dragRef] = useDrag(

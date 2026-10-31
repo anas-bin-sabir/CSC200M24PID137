@@ -10,6 +10,7 @@ function TableauColumn({ column, colIndex, viewModel }) {
 
   const handleDropCard = (item) => {
     if (item.source === "tableau") {
+      if (item.fromCol === colIndex) return; // dropped back where it started
       viewModel.moveTableauToTableau(
         item.fromCol,
         colIndex,
