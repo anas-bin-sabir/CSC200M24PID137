@@ -45,7 +45,8 @@ export function moveTableauToTableau(fromCol, toCol, numCards) {
 }
 
 export function moveTableauToFoundation(fromCol, foundation) {
-  const movingCard = fromCol.getTopNodes(1)[0]?.data || fromCol.peek();
+  const movingCard = fromCol.getTopNodes(1)[0]?.data;
+  if (!movingCard) return { success: false };
 
   const destIndex = findFoundationIndex(movingCard, foundation);
 
@@ -57,31 +58,40 @@ export function moveTableauToFoundation(fromCol, foundation) {
   return moveCards(fromCol, destPile, () => true);
 }
 
-export function moveWasteToFoundation(waste, foundation, selectedCard = null) {
-  if (!waste || waste.isEmpty()) {
-    return { success: false };
+// Only the top (most recently drawn) waste card can be played.
+// Returns that card, or null if the waste is empty or another card was chosen.
+function playableWasteCard(waste, selectedCard) {
+  const top = getTopCard(waste);
+  if (!top) return null;
+  if (selectedCard && (selectedCard.suit !== top.suit || selectedCard.rank !== top.rank)) {
+    return null;
   }
+  return top;
+}
 
-  // Use the selected card if provided, otherwise default to top
-  const movingCard = selectedCard || waste.peek();
+export function moveWasteToFoundation(waste, foundation, selectedCard = null) {
+  const movingCard = playableWasteCard(waste, selectedCard);
+  if (!movingCard) return { success: false };
+
   // Find the correct foundation pile for this card
   const destIndex = findFoundationIndex(movingCard, foundation);
   if (destIndex === -1) return { success: false };
 
   const destPile = foundation.piles[destIndex];
-
-  // Call moveCards with the selected card
   return moveCards(waste, destPile, () => true, 1, movingCard);
 }
 
 export function moveWasteToTableau(waste, tableau, colIndex, selectedCard) {
+  const movingCard = playableWasteCard(waste, selectedCard);
+  if (!movingCard) return { success: false };
+
   const dest = tableau.columns[colIndex];
   return moveCards(
     waste,
     dest,
     (movingCards, destTop) => canPlaceOnDestination(movingCards[0], destTop),
     1, // numCards
-    selectedCard
+    movingCard
   );
 }
 
@@ -99,7 +109,7 @@ export function moveCards(
 
   // Determine which cards to move
   if (source instanceof Queue) {
-    // Move only the user-selected visible card
+    // Waste: move the given (top) card
     if (!selectedCard) return { success: false };
     const cardIndex = allCards.findIndex(
       (c) => c.suit === selectedCard.suit && c.rank === selectedCard.rank

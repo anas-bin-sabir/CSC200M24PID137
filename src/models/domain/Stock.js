@@ -59,9 +59,8 @@ export default class Stock {
 
   drawThree() {
     const drawn = [];
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 3 && !this.stockPile.isEmpty(); i++) {
       const card = this.stockPile.dequeue();
-      if (!card) break;
       card.faceUp = true;
       this.wastePile.enqueue(card);
       drawn.push(card);
