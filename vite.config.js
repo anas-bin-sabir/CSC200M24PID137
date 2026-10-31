@@ -12,4 +12,15 @@ export default defineConfig({
     }),
     tailwindcss(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // Keep the card artwork in its own chunk so it is cached separately
+        // from the app code and only downloaded when a game starts.
+        manualChunks(id) {
+          if (id.includes("@letele/playing-cards")) return "playing-cards";
+        },
+      },
+    },
+  },
 });

@@ -1,44 +1,23 @@
-import React, { useState, useEffect } from "react";
+import React, { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import GameViewModel from "./viewModels/GameViewModel.js";
-import BoardView from "./views/BoardView.jsx";
-import Header from "./views/Header.jsx";
-import LeavePage from "./views/LeavePage.jsx";
-import RulesPage from "./views/RulesPage.jsx";
 import Home from "./views/HomePage.jsx";
 
+// Loaded on demand, so the card images only download when a game starts
+const GamePage = lazy(() => import("./views/GamePage.jsx"));
+const LeavePage = lazy(() => import("./views/LeavePage.jsx"));
+const RulesPage = lazy(() => import("./views/RulesPage.jsx"));
+
 function App() {
-  const [viewModel, setViewModel] = useState(null);
-  const [gameState, setGameState] = useState(null);
-
-  useEffect(() => {
-    const vm = new GameViewModel(setGameState); // Game view model
-    vm.startNewGame();
-    setViewModel(vm);
-    return () => vm.dispose(); // stop the game clock
-  }, []);
-
-  if (!viewModel || !gameState)
-    return <div className="text-white">Loading...</div>;
-
   return (
     <Router>
-      <Routes>
-        {/* Home / Game Board */}
-        <Route path="/" element={<Home />}></Route>
-        <Route
-          path="/game"
-          element={
-            <>
-              <Header viewModel={viewModel} />
-              <BoardView viewModel={viewModel} />
-            </>
-          }
-        />
-        {/* Leave Page */}
-        <Route path="/leave" element={<LeavePage />} />
-        <Route path="/rules" element={<RulesPage />} />
-      </Routes>
+      <Suspense fallback={<div className="text-white">Loading...</div>}>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/game" element={<GamePage />} />
+          <Route path="/leave" element={<LeavePage />} />
+          <Route path="/rules" element={<RulesPage />} />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }
