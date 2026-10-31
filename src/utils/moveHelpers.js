@@ -5,43 +5,15 @@ import {
 } from "./gameRules.js";
 import Queue from "../models/data structures/Queue.js";
 
-// Helper to get top card from various pile types
-// function getTopCard(pile) {
-//   if (pile.peek) return pile.peek();
-//   if (Array.isArray(pile) && pile.length > 0) return pile[pile.length - 1];
-//   return null;
-// }
+// Top card of any pile (List, Stack and Queue all implement toArray)
 function getTopCard(pile) {
-  // Case 1: Has a custom 'peekTop' or 'getTopCard' method
-  if (typeof pile.getTopCard === "function") return pile.getTopCard();
-
-  // Case 2: Has toArray()
-  if (typeof pile.toArray === "function") {
-    const arr = pile.toArray();
-    return arr.length > 0 ? arr[arr.length - 1] : null;
-  }
-
-  // Case 3: Has peek()
-  if (typeof pile.peek === "function") {
-    const card = pile.peek();
-    return card || null;
-  }
-
-  // Case 4: Is array
-  if (Array.isArray(pile) && pile.length > 0) {
-    return pile[pile.length - 1];
-  }
-
-  return null;
+  const cards = pile.toArray();
+  return cards.length > 0 ? cards[cards.length - 1] : null;
 }
 
 // Helper to insert cards into destination
 export function insertCards(dest, cards) {
   if (!cards || cards.length === 0) return;
-
-  console.log("Inserting cards into destination:", dest, cards);
-  // console.log("cards:", typeof cards, cards);
-  // console.log("dest type:", typeof dest, dest);
 
   if (dest.insertAtEnd) {
     cards.forEach((c) => dest.insertAtEnd(c));
@@ -58,14 +30,6 @@ export function insertCards(dest, cards) {
 
 // Rule-specific wrappers for readability
 export function moveTableauToTableau(fromCol, toCol, numCards) {
-  console.log(
-    "moveHelpers line 60 moving",
-    numCards,
-    "cards from",
-    fromCol,
-    "to",
-    toCol
-  );
   return moveCards(
     fromCol,
     toCol,
@@ -82,20 +46,10 @@ export function moveTableauToTableau(fromCol, toCol, numCards) {
 
 export function moveTableauToFoundation(fromCol, foundation) {
   const movingCard = fromCol.getTopNodes(1)[0]?.data || fromCol.peek();
-  console.log(
-    "Moving card:",
-    movingCard,
-    "typeof movingCard:",
-    typeof movingCard
-  );
 
   const destIndex = findFoundationIndex(movingCard, foundation);
 
-  console.log("Moving card:", movingCard);
-  console.log("Determined foundation index:", destIndex);
-
   if (destIndex === -1) {
-    console.log("Invalid move to foundation");
     return { success: false };
   }
 
@@ -105,13 +59,11 @@ export function moveTableauToFoundation(fromCol, foundation) {
 
 export function moveWasteToFoundation(waste, foundation, selectedCard = null) {
   if (!waste || waste.isEmpty()) {
-    console.log("Waste pile is empty");
     return { success: false };
   }
 
   // Use the selected card if provided, otherwise default to top
   const movingCard = selectedCard || waste.peek();
-  console.log("Waste pile moving card:", movingCard);
   // Find the correct foundation pile for this card
   const destIndex = findFoundationIndex(movingCard, foundation);
   if (destIndex === -1) return { success: false };
@@ -145,8 +97,6 @@ export function moveCards(
   let movingCards = [];
   const allCards = source.toArray();
 
-  console.log("moveHelpers line 197 allCards from source:", source);
-
   // Determine which cards to move
   if (source instanceof Queue) {
     // Move only the user-selected visible card
@@ -175,22 +125,9 @@ export function moveCards(
   const destTop = getTopCard(dest);
   if (!validateFn(movingCards, destTop)) return { success: false };
 
-  console.log("moveHelpers line 202 movingCards:", source.name, movingCards);
-  console.log(
-    "moveHelpers line 203 typeOf source:",
-    source.type || source.name
-  );
   // Remove from source
   if (source instanceof Queue) {
     source.removeCard(selectedCard); // remove specific one
-  } else if (
-    selectedCard &&
-    typeof source.removeCardsFromIndex === "function"
-  ) {
-    const index = allCards.findIndex(
-      (c) => c.suit === selectedCard.suit && c.rank === selectedCard.rank
-    );
-    if (index !== -1) source.removeCardsFromIndex(index);
   } else if (typeof source.deleteTopNodes === "function") {
     source.deleteTopNodes(numCards);
   } else if (typeof source.pop === "function") {
@@ -200,9 +137,8 @@ export function moveCards(
   // Insert into destination pile
   insertCards(dest, movingCards);
 
-  // Flip last card if necessary
-  if (typeof flipLastCardIfFaceDown === "function")
-    flipLastCardIfFaceDown(source);
+  // Turn over the newly exposed card
+  flipLastCardIfFaceDown(source);
 
   return {
     success: true,
@@ -213,21 +149,7 @@ export function moveCards(
   };
 }
 
-function flipLastCardIfFaceDown(column) {
-  if (!column || column.isEmpty()) return;
-
-  let lastNode;
-  if (typeof column.getLastNode === "function") {
-    lastNode = column.getLastNode();
-  } else if (typeof column.toArray === "function") {
-    const arr = column.toArray();
-    lastNode = arr.length ? arr[arr.length - 1] : null;
-  } else if (Array.isArray(column)) {
-    lastNode = column[column.length - 1];
-  }
-
-  if (lastNode) {
-    const card = lastNode.data || lastNode;
-    if (!card.faceUp) card.faceUp = true;
-  }
+function flipLastCardIfFaceDown(pile) {
+  const card = getTopCard(pile);
+  if (card) card.faceUp = true;
 }

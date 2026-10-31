@@ -10,14 +10,10 @@ export default function CardUI({
   source = "tableau",
   isHint = false,
 }) {
-  if (!card) {
-    return null;
-  }
-
-  // Create a drag item for React DnD
+  // Hooks must run on every render, so the null check comes after them.
   const dragItem = useMemo(() => {
-    if (!card.faceUp) return null;
-    return { type: "CARD", cards: stack, fromCol: columnIndex, source };
+    if (!card?.faceUp) return null;
+    return { type: "CARD", card, cards: stack, fromCol: columnIndex, source };
   }, [card, stack, columnIndex, source]);
 
   // Enable dragging
@@ -37,9 +33,10 @@ export default function CardUI({
   useEffect(() => {
     if (isDragging && card?.faceUp) {
       viewModel?.selectCard(card);
-      console.log("Drag started — selected card:", card.toString?.() || card);
     }
   }, [isDragging, card, viewModel]);
+
+  if (!card) return null;
 
   const handleClick = () => {
     if (!card.faceUp) return;
@@ -47,9 +44,10 @@ export default function CardUI({
   };
 
   // Card graphics
-  const key = card?.suit?.[0]?.toUpperCase() + card?.rank?.toLowerCase();
-  const Comp = (deck && deck[key]) || deck["2C"];
-  const Back = deck["B1"];
+  // Asset names look like "Ha", "S10", "Dk": suit initial + rank
+  const key = card.suit?.[0]?.toUpperCase() + card.rank?.toLowerCase();
+  const Comp = deck[key];
+  const Back = deck.B1;
 
   if (!Comp || !Back) {
     console.warn("Missing card asset for:", key);
@@ -59,7 +57,6 @@ export default function CardUI({
   // Render
   return (
     <div
-      key={isHint ? `hint-${Date.now()}` : card.id} // 🔥 Remount = animation restarts
       ref={dragRef}
       onClick={handleClick}
       className={`

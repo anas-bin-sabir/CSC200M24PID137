@@ -20,7 +20,6 @@ export default function BoardView({ viewModel }) {
   // Hook up victory callback
   React.useEffect(() => {
     viewModel.onVictory = () => {
-      console.log("Victory callback triggered!");
       setShowVictoryModal(true);
     };
   }, [viewModel]);

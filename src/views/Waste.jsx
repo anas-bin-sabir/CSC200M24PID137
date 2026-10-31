@@ -1,6 +1,5 @@
 import React from "react";
 import CardUI from "./CardUI";
-import { useDrag } from "react-dnd";
 
 export default function WasteView({ waste, viewModel }) {
   const hintedCard = viewModel?.hint?.card;
@@ -15,47 +14,25 @@ export default function WasteView({ waste, viewModel }) {
         </div>
       )}
 
-      {visibleCards.map((card, index) => {
-        const [{ isDragging }, drag] = useDrag(() => ({
-          type: "CARD",
-          item: { card, fromCol: null, source: "waste" },
-          canDrag: () => card?.faceUp ?? false,
-          collect: (monitor) => ({
-            isDragging: monitor.isDragging(),
-          }),
-        }));
-
-        if (!card) return <div key={index} />; // render placeholder instead of skipping hoo
-
-        return (
-          <div
-            key={card.id || index}
-            ref={drag}
-            onClick={() => viewModel.selectCard(card)}
-            className="absolute transition-transform duration-300 cursor-pointer"
-            style={{
-              left: `${index * 27}px`,
-              zIndex: 100 + index,
-              opacity: isDragging ? 0.4 : 1,
-              boxShadow:
-                viewModel.selectedCard === card
-                  ? "0 0 12px 3px rgba(255,255,0,0.7)"
-                  : "none",
-            }}
-          >
-            <CardUI
-              card={card}
-              viewModel={viewModel}
-              source="waste"
-              isHint={
-                hintedCard &&
-                hintedCard.suit === card.suit &&
-                hintedCard.rank === card.rank
-              }
-            />
-          </div>
-        );
-      })}
+      {visibleCards.map((card, index) => (
+        // Dragging is handled by CardUI (source="waste")
+        <div
+          key={`${card.suit}-${card.rank}`}
+          className="absolute transition-transform duration-300 cursor-pointer"
+          style={{ left: `${index * 27}px`, zIndex: 100 + index }}
+        >
+          <CardUI
+            card={card}
+            viewModel={viewModel}
+            source="waste"
+            isHint={
+              hintedCard &&
+              hintedCard.suit === card.suit &&
+              hintedCard.rank === card.rank
+            }
+          />
+        </div>
+      ))}
     </div>
   );
 }

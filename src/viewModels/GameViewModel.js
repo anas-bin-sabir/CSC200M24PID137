@@ -1,6 +1,4 @@
 import GameController from "../controllers/GameController.js";
-import Queue from "../models/data structures/Queue.js";
-import Stack from "../models/data structures/Stack.js";
 
 export default class GameViewModel {
   constructor(setState) {
@@ -12,39 +10,33 @@ export default class GameViewModel {
 
     this.selectedCard = null;
     this.errorMessage = null;
-    this.observers = [];
-
-    this.updateState(); // initial render
-    this.showVictoryModal = false; // initialize
+    this.showVictoryModal = false;
+    this.hint = null;
     this.controller.onGameWin = this.handleGameWin.bind(this);
 
-    if (typeof window !== "undefined") {
+    this.updateState(); // initial render
+
+    // Debug cheat, only available in development builds
+    if (import.meta.env.DEV && typeof window !== "undefined") {
       window.forceWin = this.forceWin.bind(this);
     }
   }
-  checkWin() {
-    if (this.isGameWon()) {
-      if (this.onVictory) this.onVictory(); // notify the UI
-    }
+
+  // Stop the game clock; call when the game view is torn down.
+  dispose() {
+    this.controller.stopTimer();
+    clearTimeout(this.hintTimer);
   }
 
   handleGameWin() {
-    console.log("handleGameWin() triggered — showing victory modal!");
-    this.stopTimer?.(); // stop timer if exists
-
-    // React state will track modal
-    if (this.onVictory) {
-      this.onVictory();
-    }
-
-    // Optional: also set internal flag
+    this.controller.stopTimer();
     this.showVictoryModal = true;
+    if (this.onVictory) this.onVictory();
   }
 
   /** --- CARD SELECTION --- */
   selectCard(card) {
     this.selectedCard = card;
-    console.log("viewModel 264 selectCard:", card);
   }
 
   clearSelection() {
@@ -54,70 +46,50 @@ export default class GameViewModel {
   /** --- ERROR HANDLING --- */
   setError(message) {
     this.errorMessage = message;
-    this.notifyObservers();
   }
 
   clearError() {
     this.errorMessage = null;
-    this.notifyObservers();
   }
 
   /** --- STATE SYNC --- */
+  // Builds the plain state object the views render from.
   getState() {
     const state = this.controller.getState();
 
+    const completedCards = state.foundation.piles.reduce(
+      (sum, pile) => sum + pile.size(),
+      0
+    );
+
     return {
-      ...state,
+      // New array references so React sees the change
+      tableau: {
+        columns: state.tableau.columns.map((col) => col.toArray()),
+      },
+      foundation: state.foundation,
+      stock: state.stock,
+      waste: state.stock.getWasteCards(),
       moves: this.controller.moves,
       score: this.controller.score,
-      progress: this.controller.progress,
       time: this.controller.time,
+      progress: Math.floor((completedCards / 52) * 100),
+      hint: this.hint ?? null,
       showVictoryModal: this.showVictoryModal,
     };
   }
 
   updateState() {
-    const state = this.controller.getState();
-
-    // Ensure new array references for React
-    const tableau = {
-      ...state.tableau,
-      columns: state.tableau.columns.map((col) =>
-        col.toArray ? col.toArray() : [...col]
-      ),
-    };
-    const waste = state.stock.getWasteCards().slice();
-
-    // Compute progress
-    const completedCards = state.foundation.piles.reduce((sum, pile) => {
-      const pileCount = pile?.count ?? pile?.length ?? 0;
-      return sum + pileCount;
-    }, 0);
-
-    const progress = Math.floor((completedCards / 52) * 100);
-
-    this.setState({
-      tableau,
-      foundation: state.foundation,
-      stock: state.stock,
-      waste,
-      moves: this.controller.moves || 0,
-      score: this.controller.score || 0,
-      time: this.controller.time || 0,
-      progress,
-    });
+    this.setState(this.getState());
   }
 
   /** --- GAME ACTIONS --- */
   startNewGame() {
     this.showVictoryModal = false;
+    this.hint = null;
+    this.clearSelection();
     this.controller.startNewGame();
     this.updateState();
-
-    this.setState((prev) => ({
-      ...prev,
-      showVictoryModal: false,
-    }));
   }
 
   drawFromStock() {
@@ -126,25 +98,22 @@ export default class GameViewModel {
   }
 
   recycleFromWaste() {
-    this.controller.stock.resetFromWaste();
+    this.controller.recycleWaste();
     this.updateState();
   }
 
-  moveWasteToTableau(colIndex) {
-    if (!this.selectedCard) return;
-    const result = this.controller.moveWasteToTableau(
-      colIndex,
-      this.selectedCard
-    );
-    if (!result.success) this.setError("Invalid move!");
+  moveWasteToTableau(colIndex, card = this.selectedCard) {
+    if (!card) return;
+    const result = this.controller.moveWasteToTableau(colIndex, card);
+    if (!result) this.setError("Invalid move!");
     else this.clearError();
     this.clearSelection();
     this.updateState();
   }
 
-  moveWasteToFoundation() {
-    if (!this.selectedCard) return;
-    const result = this.controller.moveWasteToFoundation(this.selectedCard);
+  moveWasteToFoundation(card = this.selectedCard) {
+    if (!card) return;
+    const result = this.controller.moveWasteToFoundation(card);
     if (!result) this.setError("Invalid move!");
     else this.clearError();
     this.clearSelection();
@@ -157,7 +126,7 @@ export default class GameViewModel {
       toCol,
       numCards
     );
-    if (!result.success) this.setError("Invalid move!");
+    if (!result) this.setError("Invalid move!");
     else this.clearError();
     this.clearSelection();
     this.updateState();
@@ -186,55 +155,8 @@ export default class GameViewModel {
   }
 
   forceWin() {
-    console.log("forceWin()");
-
-    try {
-      // Fill all 4 foundations
-      for (let i = 0; i < 4; i++) {
-        this.controller.foundation.piles[i] = Array(13).fill({ dummy: true });
-      }
-
-      // Clear tableau
-      for (let i = 0; i < 7; i++) {
-        this.controller.tableau.columns[i] = [];
-      }
-
-      // Properly clear stock and waste
-      this.controller.stock.stockPile.front = null;
-      this.controller.stock.stockPile.rear = null;
-      this.controller.stock.wastePile.top = null;
-      this.controller.stock.cards = [];
-      this.controller.stock.stockPile.count = 0;
-      this.controller.stock.wastePile.count = 0;
-
-      console.log("Force win executed successfully!");
-      this.updateState();
-
-      const won = this.controller.checkVictory();
-      console.log("Victory condition check:", won);
-      if (won && this.controller.onGameWin) {
-        this.controller.onGameWin();
-      }
-    } catch (err) {
-      console.error("Error during forceWin:", err);
-    }
-  }
-
-  onGameWin(callback) {
-    this.onGameWin = callback;
-  }
-
-  /** --- VICTORY CHECK --- */
-  checkVictory() {
-    return this.controller.checkVictory();
-  }
-
-  notifyObservers() {
-    this.observers.forEach((cb) => cb());
-  }
-
-  subscribe(cb) {
-    this.observers.push(cb);
+    this.controller.forceWin();
+    this.updateState();
   }
 
   provideHint() {
@@ -292,30 +214,25 @@ export default class GameViewModel {
     }
 
     // ---------------------------
-    // Tableau to Tableau
+    // Tableau to Tableau (any card in a face-up run, moved with the cards on top)
     // ---------------------------
-    for (let srcCol of tableau.columns) {
-      const srcTopNode = srcCol.getTopNodes?.(1)?.[0]; // Node
-      const srcTopCard = srcTopNode?.data; // Card
-      if (!srcTopCard) continue;
+    for (const srcCol of tableau.columns) {
+      const allCards = srcCol.toArray();
+      const run = srcCol.getTopNodes(allCards.length).map((node) => node.data);
 
-      for (let destCol of tableau.columns) {
-        if (srcCol === destCol) continue;
+      run.forEach((card, i) => {
+        // Moving a run that already starts the column to an empty column does nothing
+        const startsColumn = allCards.length - run.length + i === 0;
 
-        if (this.controller.isValidMoveToTableau(srcTopCard, destCol)) {
-          console.log(
-            "Valid move found:",
-            srcTopCard,
-            " to ",
-            destCol.getTopNodes?.(1)
-          );
-          tableauToTableau.push({
-            from: "tableau",
-            to: "tableau",
-            card: srcTopCard,
-          });
+        for (const destCol of tableau.columns) {
+          if (srcCol === destCol) continue;
+          if (startsColumn && destCol.isEmpty()) continue;
+
+          if (this.controller.isValidMoveToTableau(card, destCol)) {
+            tableauToTableau.push({ from: "tableau", to: "tableau", card });
+          }
         }
-      }
+      });
     }
 
     // ---------------------------
@@ -329,50 +246,14 @@ export default class GameViewModel {
     return null; // No valid moves anywhere
   }
 
-  // highlightHint(hint) {
-  //   if (!hint) return;
-
-  //   this.hint = hint;
-
-  //   const currentState = this.controller.getState();
-
-  //   this.setState({
-  //     tableau: {
-  //       ...currentState.tableau,
-  //       columns: currentState.tableau.columns.map((col) =>
-  //         col.toArray ? col.toArray() : [...col]
-  //       ),
-  //     },
-  //     foundation: currentState.foundation,
-  //     stock: currentState.stock,
-  //     waste: currentState.stock.getWasteCards().slice(),
-  //     hint,
-  //   });
-  // }
-
+  // Show a hint, then clear it after 3 seconds
   highlightHint(hint) {
-    const animationKey = Date.now(); // changes only once per hint click
-
+    clearTimeout(this.hintTimer);
     this.hint = hint;
+    this.updateState();
 
-    const currentState = this.controller.getState();
-
-    this.setState({
-      tableau: {
-        ...currentState.tableau,
-        columns: currentState.tableau.columns.map((col) =>
-          col.toArray ? col.toArray() : [...col]
-        ),
-      },
-      foundation: currentState.foundation,
-      stock: currentState.stock,
-      waste: currentState.stock.getWasteCards().slice(),
-      hint,
-      animationKey,
-    });
-  }
-
-  getHintedCard() {
-    return this.hint?.card || null;
+    if (hint) {
+      this.hintTimer = setTimeout(() => this.highlightHint(null), 3000);
+    }
   }
 }

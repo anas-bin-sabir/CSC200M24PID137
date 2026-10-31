@@ -51,18 +51,9 @@ export function isValidSequence(cards) {
 // Checks if a card can be placed on a destination card in tableau
 export function canPlaceOnDestination(movingCard, destCard) {
   if (!destCard) {
-    console.log("inside canPlaceOnDestination:", movingCard, destCard);
     return movingCard.rank === "K"; // Only King can be placed on empty spot
   }
-  console.log("inside canPlaceOnDestination:", movingCard, destCard);
 
-  console.log("rankValue(movingCard.rank):", rankValue(movingCard.rank));
-  console.log("rankValue(destCard.rank):", rankValue(destCard.rank));
-  console.log(
-    "color and rank comparison:",
-    rankValue(movingCard.rank) === rankValue(destCard.rank) - 1 &&
-      !isSameColor(movingCard.suit, destCard.suit)
-  );
   return (
     rankValue(movingCard.rank) === rankValue(destCard.rank) - 1 &&
     !isSameColor(movingCard.suit, destCard.suit)

@@ -9,19 +9,14 @@ function TableauColumn({ column, colIndex, viewModel }) {
   const pile = column.toArray ? column.toArray() : column; // if array, just use it
 
   const handleDropCard = (item) => {
-    try {
-      console.log(item.cards?.length);
-      if (item.source === "tableau") {
-        viewModel.moveTableauToTableau(
-          item.fromCol,
-          colIndex,
-          item.cards?.length || 1
-        );
-      } else if (item.source === "waste") {
-        viewModel.moveWasteToTableau(colIndex, item.card);
-      }
-    } catch (err) {
-      console.log("Invalid move:", err.message);
+    if (item.source === "tableau") {
+      viewModel.moveTableauToTableau(
+        item.fromCol,
+        colIndex,
+        item.cards?.length || 1
+      );
+    } else if (item.source === "waste") {
+      viewModel.moveWasteToTableau(colIndex, item.card);
     }
   };
 

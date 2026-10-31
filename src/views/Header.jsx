@@ -8,9 +8,6 @@ export default function Header({ viewModel }) {
       alert("No possible moves!");
     } else {
       viewModel.highlightHint(hint);
-
-      // auto-clear after 3s
-      setTimeout(() => viewModel.highlightHint(null), 3000);
     }
   };
 

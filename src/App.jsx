@@ -15,6 +15,7 @@ function App() {
     const vm = new GameViewModel(setGameState); // Game view model
     vm.startNewGame();
     setViewModel(vm);
+    return () => vm.dispose(); // stop the game clock
   }, []);
 
   if (!viewModel || !gameState)

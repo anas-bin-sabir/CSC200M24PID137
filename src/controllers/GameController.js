@@ -1,3 +1,4 @@
+import Card from "../models/domain/Card.js";
 import Deck from "../models/domain/Deck.js";
 import Tableau from "../models/domain/Tableau.js";
 import Foundation from "../models/domain/Foundation.js";
@@ -10,65 +11,40 @@ import {
   moveWasteToTableau,
   moveWasteToFoundation,
 } from "../utils/moveHelpers.js";
-import { List } from "lucide-react";
+import { rankValue, canPlaceOnDestination } from "../utils/gameRules.js";
 
 export default class GameController {
   constructor(onUpdate) {
     this.onUpdate = onUpdate;
-    // Initialize game state
-    // this.startNewGame();
-    this.deck = new Deck();
-    this.deck.shuffle();
-
-    this.tableau = new Tableau();
-    this.tableau.deal(this.deck);
-
-    this.foundation = new Foundation();
-    this.stock = new Stock(this.deck);
-
-    // History stacks
-    this.undoStack = new Stack();
-    this.redoStack = new Stack();
-
-    // Save the initial state for undo safety
-    this.undoStack.push(this.getSnapshot());
-
-    this.moves = 0;
-    this.score = 0;
-    this.time = 0;
-    this.timer = null; // for setInterval
+    this.timer = null;
+    this.resetGame();
   }
 
   /* ----------------- CORE INITIALIZATION ----------------- */
 
-  startNewGame() {
+  resetGame() {
     this.deck = new Deck();
     this.deck.shuffle();
 
     this.tableau = new Tableau();
-
     this.tableau.deal(this.deck);
 
     this.foundation = new Foundation();
     this.stock = new Stock(this.deck);
 
-    // History stacks
-    this.undoStack = new Stack();
-    this.redoStack = new Stack();
-
-    // Save the initial state for undo safety
-    this.undoStack.push(this.getSnapshot());
-
     this.moves = 0;
     this.score = 0;
     this.time = 0;
-    this.timer = null; // for setInterval
 
-    this.stopTimer();
+    // History stacks; the initial state is the first undo entry
+    this.undoStack = new Stack();
+    this.redoStack = new Stack();
+    this.undoStack.push(this.getSnapshot());
+  }
+
+  startNewGame() {
+    this.resetGame();
     this.startTimer();
-
-    console.log("New game started.");
-    console.log("Tableau after new game:", this.tableau);
   }
 
   startTimer() {
@@ -97,14 +73,20 @@ export default class GameController {
       tableau: this.tableau.toJSON(),
       foundation: this.foundation.toJSON(),
       stock: this.stock.toJSON(),
+      moves: this.moves,
+      score: this.score,
     };
   }
 
   restoreSnapshot(snapshot) {
+    if (!snapshot) return false;
     this.deck = Deck.fromJSON(snapshot.deck);
     this.tableau = Tableau.fromJSON(snapshot.tableau);
     this.foundation = Foundation.fromJSON(snapshot.foundation);
     this.stock = Stock.fromJSON(snapshot.stock);
+    this.moves = snapshot.moves;
+    this.score = snapshot.score;
+    return true;
   }
 
   // Return current full state (for UI rendering)
@@ -120,21 +102,18 @@ export default class GameController {
 
   /* ----------------- MOVE RECORDING ----------------- */
 
+  // Called after a successful move: update counters, then save the new state
+  // so undo can return to it.
   recordMove(move) {
-    // Save *before* recording redo reset
-    this.undoStack.push(this.getSnapshot());
-    // console.log(this.undoStack);
-    this.redoStack.clear(); // Clear redo history on new action
-    console.log("Move recorded:", move.type);
-
     this.moves++;
-    console.log("Total moves:", this.moves);
 
-    // Example scoring logic
     if (move.type === "TABLEAU_TO_TABLEAU") this.score += 5;
     else if (move.type === "TABLEAU_TO_FOUNDATION") this.score += 10;
     else if (move.type === "WASTE_TO_TABLEAU") this.score += 5;
     else if (move.type === "WASTE_TO_FOUNDATION") this.score += 10;
+
+    this.undoStack.push(this.getSnapshot());
+    this.redoStack.clear(); // a new move invalidates the redo history
   }
 
   /* ----------------- MOVE ACTIONS ----------------- */
@@ -230,13 +209,11 @@ export default class GameController {
       return true;
     }
 
-    console.log("Move invalid or failed");
     return false;
   }
 
   drawFromStock() {
     const drawnCards = this.stock.drawThree();
-    console.log("Drawn cards:XXXXXXXXXXX");
     if (drawnCards.length === 0) return [];
 
     this.recordMove({
@@ -249,264 +226,66 @@ export default class GameController {
     return drawnCards;
   }
 
+  recycleWaste() {
+    if (!this.stock.isEmpty()) return false;
+    if (this.stock.wastePile.isEmpty()) return false;
+    this.stock.resetFromWaste();
+    this.recordMove({ type: "RECYCLE" });
+    return true;
+  }
+
+  // The top of undoStack is always the current state.
   undoLastMove() {
-    if (this.undoStack.size() <= 1) {
-      console.log("No previous states to undo.");
-      return false;
-    }
+    if (this.undoStack.size() <= 1) return false;
 
-    // Pop current state from undo stack and push it to redo stack
-    const currentState = this.undoStack.pop();
-    this.redoStack.push(currentState);
-
-    // Peek previous state on undo stack and restore it
-    const prevState = this.undoStack.peek();
-    if (this.restoreSnapshot(prevState)) {
-      console.log("Undo successful.");
-      return true;
-    } else {
-      console.log("Undo failed.");
-      return false;
-    }
+    this.redoStack.push(this.undoStack.pop());
+    return this.restoreSnapshot(this.undoStack.peek());
   }
 
   redoLastMove() {
-    if (this.redoStack.isEmpty()) {
-      console.log("No moves to redo.");
-      return false;
-    }
+    if (this.redoStack.isEmpty()) return false;
 
-    // Pop next state from redo stack
     const nextState = this.redoStack.pop();
-
-    // Push current state to undo stack before applying redo
-    const currentState = this.getSnapshot();
-    this.undoStack.push(currentState);
-
-    // Restore the redo state
-    if (this.restoreSnapshot(nextState)) {
-      // Also push the redone state to undo stack so further undo works
-      this.undoStack.push(nextState);
-      console.log("Redo successful.");
-      return true;
-    } else {
-      console.log("Redo failed.");
-      return false;
-    }
+    this.undoStack.push(nextState);
+    return this.restoreSnapshot(nextState);
   }
 
   /* ----------------- GAME STATUS ----------------- */
 
+  // All 52 cards on the foundations means the tableau, stock and waste are empty.
   checkVictory() {
-    console.log("Checking victory condition...");
-
-    // --- Check foundations ---
-    const allFoundationsFull = this.foundation.piles.every((pile) => {
-      if (!pile) return false;
-      if (Array.isArray(pile)) return pile.length === 13;
-      if (typeof pile.size !== "undefined") return pile.size === 13;
-      if (typeof pile.count !== "undefined") return pile.count === 13;
-      return false;
-    });
-
-    // --- Check tableau ---
-    const allTableauEmpty = this.tableau.columns.every((col) => {
-      if (!col) return false;
-      if (Array.isArray(col)) return col.length === 0;
-      if (typeof col.isEmpty === "function") return col.isEmpty();
-      if (typeof col.count !== "undefined") return col.count === 0;
-      return false;
-    });
-
-    // --- Check stock ---
-    const stockEmpty =
-      (typeof this.stock.isEmpty === "function" && this.stock.isEmpty()) ||
-      (this.stock.stockPile?.count === 0 &&
-        this.stock.wastePile?.count === 0 &&
-        this.stock.cards?.count === 0);
-
-    console.log("foundation full:", allFoundationsFull);
-    console.log("tableau empty:", allTableauEmpty);
-    console.log("stock empty:", stockEmpty);
-
-    const victory = allFoundationsFull && allTableauEmpty && stockEmpty;
-
-    if (victory) console.log("🎉 Victory achieved!");
-    return victory;
+    return this.foundation.piles.every((pile) => pile.size() === 13);
   }
 
-  // HINTING FUNCTION
-  // ----------------------------------------------------//
-  getHint() {
-    // 1. Check waste → foundation
-    const wasteCards = this.stock.getWasteCards();
-    if (wasteCards.length > 0) {
-      const topWaste = wasteCards[wasteCards.length - 1];
-      const canMoveToFoundation = this.foundation.piles.some((pile) =>
-        this.isValidMoveToFoundation(topWaste, pile)
-      );
-
-      if (canMoveToFoundation) {
-        return {
-          type: "WASTE_TO_FOUNDATION",
-          from: "waste",
-          card: topWaste,
-        };
-      }
-    }
-
-    // 2. Check waste → tableau
-    if (wasteCards.length > 0) {
-      const topWaste = wasteCards[wasteCards.length - 1];
-      const colIndex = this.tableau.columns.findIndex((col) =>
-        this.isValidMoveToTableau(topWaste, col)
-      );
-      if (colIndex !== -1) {
-        return {
-          type: "WASTE_TO_TABLEAU",
-          from: "waste",
-          to: `tableau-${colIndex}`,
-          card: topWaste,
-        };
-      }
-    }
-
-    // 3. Check tableau → foundation
-    for (let i = 0; i < this.tableau.columns.length; i++) {
-      const col = this.tableau.columns[i];
-      const topCard = col.getLastNode()?.data;
-      if (topCard) {
-        const canMove = this.foundation.piles.some((pile) =>
-          this.isValidMoveToFoundation(topCard, pile)
-        );
-        if (canMove) {
-          return {
-            type: "TABLEAU_TO_FOUNDATION",
-            from: `tableau-${i}`,
-            card: topCard,
-          };
-        }
-      }
-    }
-
-    // 4. Check tableau → tableau
-    for (let i = 0; i < this.tableau.columns.length; i++) {
-      const fromCol = this.tableau.columns[i];
-      const cards = fromCol.toArray().filter((c) => c.faceUp);
-      for (const card of cards) {
-        for (let j = 0; j < this.tableau.columns.length; j++) {
-          if (i === j) continue;
-          const destCol = this.tableau.columns[j];
-          if (this.isValidMoveToTableau(card, destCol)) {
-            return {
-              type: "TABLEAU_TO_TABLEAU",
-              from: `tableau-${i}`,
-              to: `tableau-${j}`,
-              card,
-            };
-          }
-        }
-      }
-    }
-
-    // 5. No hint found
-    return null;
-  }
+  /* ----------------- MOVE VALIDATION (used by hints) ----------------- */
 
   isValidMoveToFoundation(card, pile) {
-    if (!pile || (Array.isArray(pile) && pile.length === 0)) {
-      return card.rank === "A";
-    }
-
-    const top = pile instanceof Stack ? pile.peek() : pile[0]?.data;
-    if (!top) return card.rank === "A"; // Only Ace starts a pile
-    return (
-      card.suit === top.suit &&
-      this.rankValue(card.rank) === this.rankValue(top.rank) + 1
-    );
+    const top = pile.isEmpty() ? null : pile.peek();
+    if (!top) return card.rank === "A";
+    return card.suit === top.suit && rankValue(card.rank) === rankValue(top.rank) + 1;
   }
 
   isValidMoveToTableau(card, column) {
-    let top, topNode, topCard;
-
-    // Column is LinkedList
-    if (typeof column.getTopNodes === "function") {
-      top = column.getTopNodes(1);
-      topNode = top?.[0]; // get the Node
-      topCard = topNode?.data; // extract Card object
-    }
-    // Column is Array
-    else if (Array.isArray(column)) {
-      top = column[column.length - 1]?.data;
-    }
-    // No column
-    else {
-      topCard = null;
-    }
-
-    if (!topCard) return card.rank === "K"; // King starts tableau
-
-    return (
-      this.isOppositeColor(card.suit, topCard.suit) &&
-      this.rankValue(card.rank) === this.rankValue(topCard.rank) - 1
-    );
+    const cards = column.toArray();
+    return canPlaceOnDestination(card, cards[cards.length - 1] ?? null);
   }
 
-  isOppositeColor(s1, s2) {
-    const red = ["hearts", "diamonds"];
-    const black = ["clubs", "spades"];
-    return (
-      (red.includes(s1) && black.includes(s2)) ||
-      (black.includes(s1) && red.includes(s2))
-    );
-  }
-
-  rankValue(rank) {
-    const order = [
-      "A",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-      "9",
-      "10",
-      "J",
-      "Q",
-      "K",
-    ];
-    return order.indexOf(rank.toUpperCase());
-  }
-
+  // Debug helper: put every card on the foundations.
   forceWin() {
-    // Assuming this.foundation.piles is an array of 4 piles (stacks)
     const suits = ["hearts", "diamonds", "clubs", "spades"];
-    const ranks = [
-      "A",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-      "9",
-      "10",
-      "J",
-      "Q",
-      "K",
-    ];
+    const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
-    this.foundation.piles = suits.map((suit) =>
-      ranks.map((rank) => ({ suit, rank }))
-    );
+    this.foundation = new Foundation();
+    suits.forEach((suit, i) => {
+      for (const rank of ranks) {
+        const card = new Card(suit, rank);
+        card.faceUp = true;
+        this.foundation.piles[i].push(card);
+      }
+    });
+    this.tableau = new Tableau();
+    this.stock = new Stock();
 
-    this.tableau.columns = Array(7).fill([]); // Empty tableau
-    this.stock.cards = [];
-    this.waste = [];
-
-    this.checkVictory(); // Trigger your victory logic
+    if (this.checkVictory() && this.onGameWin) this.onGameWin();
   }
 }
