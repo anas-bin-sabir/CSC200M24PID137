@@ -9,6 +9,7 @@ export default class GameViewModel {
     this.controller = new GameController(() => this.updateState());
 
     this.selectedCard = null;
+    this.selection = null; // { card, source, fromCol, count } for tap-to-move
     this.errorMessage = null;
     this.showVictoryModal = false;
     this.hint = null;
@@ -36,12 +37,47 @@ export default class GameViewModel {
   }
 
   /** --- CARD SELECTION --- */
-  selectCard(card) {
+  // info describes where the card is: { source, fromCol, count }
+  selectCard(card, info = {}) {
     this.selectedCard = card;
+    this.selection = card ? { card, ...info } : null;
   }
 
   clearSelection() {
     this.selectedCard = null;
+    this.selection = null;
+  }
+
+  // Tap-to-move: move the selected card(s) onto a tableau column
+  // (target "tableau" with colIndex) or onto the foundation.
+  moveSelectionTo(target, colIndex) {
+    const sel = this.selection;
+    if (!sel) return;
+
+    if (target === "tableau") {
+      if (sel.source === "tableau") {
+        if (sel.fromCol === colIndex) {
+          this.clearSelection();
+          this.updateState();
+        } else {
+          this.moveTableauToTableau(sel.fromCol, colIndex, sel.count);
+        }
+      } else if (sel.source === "waste") {
+        this.moveWasteToTableau(colIndex, sel.card);
+      }
+    } else if (target === "foundation") {
+      if (sel.source === "tableau") {
+        if (sel.count > 1) {
+          this.clearSelection();
+          this.setError("Invalid move!");
+          this.updateState();
+        } else {
+          this.moveTableauToFoundation(sel.fromCol);
+        }
+      } else if (sel.source === "waste") {
+        this.moveWasteToFoundation(sel.card);
+      }
+    }
   }
 
   /** --- ERROR HANDLING --- */
@@ -84,6 +120,7 @@ export default class GameViewModel {
       time: this.controller.time,
       progress: Math.floor((completedCards / 52) * 100),
       hint: this.hint ?? null,
+      selectedCard: this.selectedCard,
       errorMessage: this.errorMessage,
       showVictoryModal: this.showVictoryModal,
     };
@@ -104,11 +141,13 @@ export default class GameViewModel {
   }
 
   drawFromStock() {
+    this.clearSelection();
     this.controller.drawFromStock();
     this.updateState();
   }
 
   recycleFromWaste() {
+    this.clearSelection();
     this.controller.recycleWaste();
     this.updateState();
   }
@@ -147,11 +186,13 @@ export default class GameViewModel {
     const result = this.controller.moveTableauToFoundation(colIndex);
     if (!result) this.setError("Invalid move!");
     else this.clearError();
+    this.clearSelection();
     this.updateState();
   }
 
   /** --- UNDO / REDO --- */
   undo() {
+    this.clearSelection();
     const success = this.controller.undoLastMove();
     if (!success) this.setError("Nothing to undo");
     else this.clearError();
@@ -159,6 +200,7 @@ export default class GameViewModel {
   }
 
   redo() {
+    this.clearSelection();
     const success = this.controller.redoLastMove();
     if (!success) this.setError("Nothing to redo");
     else this.clearError();

@@ -15,16 +15,18 @@ export default function StockView({ stock, viewModel }) {
   const hasCards = stock.length > 0;
 
   return (
-    <div
-      className="relative w-30 h-45 cursor-pointer"
+    <button
+      type="button"
+      className="relative w-(--card-w) h-(--card-h) cursor-pointer"
       onClick={hasCards ? handleClick : handleRecycle}
       title={hasCards ? "Draw 3 cards" : "Recycle waste pile"}
+      aria-label={hasCards ? "Draw 3 cards" : "Recycle waste pile"}
     >
       {hasCards ? (
         stock.map((card, i) => (
           <div
             key={i}
-            className="absolute w-full h-full border-2 border-gray-400 rounded-lg bg-blue-900/60"
+            className="absolute inset-x-0 h-full border-2 border-gray-400 rounded-md sm:rounded-lg bg-blue-900/60"
             style={{ top: i * 0.5 }}
           >
             <CardUI
@@ -38,10 +40,10 @@ export default function StockView({ stock, viewModel }) {
           </div>
         ))
       ) : (
-        <div className="text-3xl w-full h-full border-2 border-gray-400 rounded-lg bg-blue-900/60 flex items-center justify-center">
+        <div className="text-[calc(var(--card-w)*0.3)] w-full h-full border-2 border-gray-400 rounded-md sm:rounded-lg bg-blue-900/60 flex items-center justify-center">
           ↩
         </div>
       )}
-    </div>
+    </button>
   );
 }

@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { useWindowSize } from "react-use";
 import Tableau from "./Tableau.jsx";
 import FoundationView from "./Foundation.jsx";
 import StockView from "./Stock.jsx";
@@ -11,6 +12,7 @@ export default function BoardView({ viewModel }) {
   const [state, setState] = React.useState(viewModel.getState());
   const [showVictoryModal, setShowVictoryModal] = React.useState(false);
   const navigate = useNavigate();
+  const { width, height } = useWindowSize();
 
   // Attach setState once
   React.useEffect(() => {
@@ -36,8 +38,8 @@ export default function BoardView({ viewModel }) {
   };
 
   return (
-    <div className="h-[600px] w-full text-white font-poppins flex flex-row justify-center items-center py-8 px-10 gap-10">
-      <div className="px-5 w-65 shrink-0">
+    <div className="w-full text-white font-poppins flex flex-col lg:flex-row justify-center items-center lg:items-start gap-3 lg:gap-8 px-2 sm:px-6 lg:px-8 py-3 sm:py-6 lg:py-8">
+      <div className="w-full max-w-xl lg:w-64 lg:max-w-none shrink-0">
         <Sidebar
           moves={state.moves}
           score={state.score}
@@ -48,26 +50,29 @@ export default function BoardView({ viewModel }) {
         />
       </div>
 
-      <div className="flex flex-col items-center grow w-full mx-auto p-8">
-        <div className="flex justify-between items-start w-11/12 mb-16">
-          <div className="flex gap-6">
-            <StockView
-              stock={state.stock.getStockCards()}
-              viewModel={viewModel}
-            />
-            <WasteView waste={state.waste} viewModel={viewModel} />
-          </div>
+      <div className="flex flex-col items-center gap-3 sm:gap-6 lg:gap-10">
+        {/* Same 7-column grid as the tableau, so the piles line up */}
+        <div className="grid grid-cols-[repeat(7,var(--card-w))] gap-(--gap)">
+          <StockView stock={state.stock.getStockCards()} viewModel={viewModel} />
+          <WasteView
+            waste={state.waste}
+            viewModel={viewModel}
+            selectedCard={state.selectedCard}
+          />
+          <div aria-hidden="true" />
           <FoundationView foundation={state.foundation} viewModel={viewModel} />
         </div>
 
-        <div className="w-full flex justify-center">
-          <Tableau tableau={state.tableau} viewModel={viewModel} />
-        </div>
+        <Tableau
+          tableau={state.tableau}
+          viewModel={viewModel}
+          selectedCard={state.selectedCard}
+        />
 
         {state.errorMessage && (
           <div
             role="alert"
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40 px-5 py-2 rounded-xl bg-red-700/90 text-white shadow-lg"
+            className="fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 z-40 max-w-[90vw] text-center px-5 py-2 rounded-xl bg-red-700/90 text-white shadow-lg"
           >
             {state.errorMessage}
           </div>
@@ -77,15 +82,15 @@ export default function BoardView({ viewModel }) {
         {showVictoryModal && (
           <>
             <Confetti
-              width={window.innerWidth}
-              height={window.innerHeight}
-              numberOfPieces={1000}
+              width={width}
+              height={height}
+              numberOfPieces={width < 640 ? 300 : 1000}
               gravity={0.7}
               recycle={true}
             />
-            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl p-8 shadow-xl text-center w-[400px] animate-pop">
-                <h1 className="text-3xl font-bold mb-4 text-blue-700">
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-xl text-center w-full max-w-sm animate-pop">
+                <h1 className="text-2xl sm:text-3xl font-bold mb-4 text-blue-700">
                   Congratulations!
                 </h1>
                 <p className="text-gray-600 mb-6">

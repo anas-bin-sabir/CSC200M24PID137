@@ -24,10 +24,16 @@ function FoundationPile({ pile, index, viewModel }) {
     [viewModel]
   );
 
+  // Tap-to-move, step 2: tapping a foundation moves the selected card here
+  const handleClick = () => {
+    if (viewModel?.selection) viewModel.moveSelectionTo("foundation");
+  };
+
   return (
     <div
       ref={drop}
-      className={`w-30 h-45 border-2 rounded-lg flex items-center justify-center transition-colors
+      onClick={handleClick}
+      className={`w-(--card-w) h-(--card-h) border-2 rounded-md sm:rounded-lg flex items-center justify-center transition-colors
         ${isOver ? "bg-green-200/40" : "bg-blue-900 border-gray-400"}
       `}
     >
@@ -36,6 +42,7 @@ function FoundationPile({ pile, index, viewModel }) {
           card={topCard}
           viewModel={viewModel}
           source="foundation"
+          draggable={false}
           isHint={
             hintedCard &&
             hintedCard.suit === topCard.suit &&
@@ -43,7 +50,9 @@ function FoundationPile({ pile, index, viewModel }) {
           }
         />
       ) : (
-        <span className="opacity-50 text-5xl">{SYMBOLS[index]}</span>
+        <span className="opacity-50 text-[calc(var(--card-w)*0.4)]">
+          {SYMBOLS[index]}
+        </span>
       )}
     </div>
   );
@@ -51,7 +60,7 @@ function FoundationPile({ pile, index, viewModel }) {
 
 export default function FoundationView({ foundation, viewModel }) {
   return (
-    <div className="flex gap-6">
+    <>
       {foundation.piles.map((pile, index) => (
         <FoundationPile
           key={index}
@@ -60,6 +69,6 @@ export default function FoundationView({ foundation, viewModel }) {
           viewModel={viewModel}
         />
       ))}
-    </div>
+    </>
   );
 }

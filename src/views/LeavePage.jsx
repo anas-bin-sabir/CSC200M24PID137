@@ -10,11 +10,11 @@ export default function LeavePage() {
   };
 
   return (
-    <div className="relative h-screen w-full font-[Poppins] text-amber-50 overflow-hidden">
+    <div className="relative min-h-dvh w-full font-[Poppins] text-amber-50 overflow-x-hidden">
       {/* Background Image */}
       <div
         className="
-          absolute inset-0
+          fixed inset-0
           bg-[url('https://img.freepik.com/premium-photo/dark-blue-abstract-background-with-geometric-pattern_1105541-1623.jpg')]
           bg-cover bg-center bg-no-repeat
           filter brightness-50
@@ -22,11 +22,11 @@ export default function LeavePage() {
       ></div>
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center justify-center h-full px-6 text-center">
-        <h1 className="text-5xl font-cinzel md:text-6xl font-extrabold mb-6 text-yellow-400 drop-shadow-xl animate-fadeIn">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-dvh px-4 sm:px-6 py-10 text-center">
+        <h1 className="text-4xl sm:text-5xl font-cinzel md:text-6xl font-extrabold mb-4 sm:mb-6 text-yellow-400 drop-shadow-xl animate-fadeIn">
           Thank You for Playing!
         </h1>
-        <p className="text-lg md:text-xl mb-12 max-w-2xl text-white drop-shadow-md animate-fadeIn delay-200">
+        <p className="text-base sm:text-lg md:text-xl mb-8 sm:mb-12 max-w-2xl text-white drop-shadow-md animate-fadeIn delay-200">
           We hope you enjoyed the game. Come back anytime to play again and
           improve your score!
         </p>
@@ -36,7 +36,7 @@ export default function LeavePage() {
           className="
             bg-linear-to-r from-yellow-400 to-yellow-500
             hover:scale-105 transform transition duration-300
-            px-12 py-4 rounded-3xl text-gray-900 text-2xl font-semibold
+            px-8 sm:px-12 py-3 sm:py-4 rounded-3xl text-gray-900 text-xl sm:text-2xl font-semibold
             shadow-xl hover:shadow-2xl flex items-center justify-center gap-3
           "
         >

@@ -1,12 +1,54 @@
 @import url("https://fonts.googleapis.com/css2?=Cinzel:wght@700&family=Poppins:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
+/*
+ * Card geometry, shared by every pile on the board (and the touch drag preview).
+ * The width is the largest that fits 7 columns across the available width,
+ * capped at 120px and by the screen height so landscape phones still fit.
+ */
+:root {
+  --gap: 4px;
+  --card-w: min(120px, calc((100vw - 16px - 6 * var(--gap)) / 7), 17dvh);
+  --card-h: calc(var(--card-w) * 1.5);
+  --fan-down: calc(var(--card-h) * 0.1); /* offset below a face-down card */
+  --fan-up: calc(var(--card-h) * 0.22); /* offset below a face-up card */
+}
+
+@media (min-width: 640px) {
+  :root {
+    --gap: 10px;
+    --card-w: min(120px, calc((100vw - 64px - 6 * var(--gap)) / 7), 19dvh);
+  }
+}
+
+/* From lg up the stats sidebar sits beside the board */
+@media (min-width: 1024px) {
+  :root {
+    --gap: 16px;
+    --card-w: min(120px, calc((100vw - 400px - 6 * var(--gap)) / 7), 19dvh);
+  }
+}
+
+body {
+  /* Background image covers the whole screen even when content is short */
+  min-height: 100dvh;
+  /* No double-tap zoom, so tapping the stock quickly just draws cards */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 .font-cinzel {
   font-family: "Cinzel", serif;
 }
 
 .font-poppins {
   font-family: "Poppins", sans-serif;
+}
+
+/* No long-press callout or text selection on cards */
+.card {
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 @keyframes card-jump {

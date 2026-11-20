@@ -13,15 +13,15 @@ export default function Header({ viewModel }) {
 
   return (
     <header
-      className="font-cinzel mx-auto mt-4 w-[90%] max-w-5xl bg-linear-to-r from-slate-900/70 via-navy-900/60 to-blue-950/60 
-      text-amber-50 flex flex-row items-center justify-between gap-4 px-8 py-4 
+      className="font-cinzel mx-auto mt-2 sm:mt-4 w-[calc(100%-1rem)] sm:w-[90%] max-w-5xl bg-linear-to-r from-slate-900/70 via-navy-900/60 to-blue-950/60 
+      text-amber-50 flex flex-row items-center justify-between gap-2 sm:gap-4 px-3 sm:px-8 py-2 sm:py-4 
       shadow-2xl border border-teal-700/30 backdrop-blur-md rounded-2xl"
     >
-      <h1 className="text-3xl font-bold tracking-wide drop-shadow-lg text-yellow-400 select-none text-center">
+      <h1 className="min-w-0 text-lg sm:text-2xl lg:text-3xl leading-tight font-bold tracking-wide drop-shadow-lg text-yellow-400 select-none text-center">
         ♠ The Pseudo Solitaire
       </h1>
 
-      <div className="flex gap-4 items-center justify-center">
+      <div className="flex shrink-0 gap-2 sm:gap-4 items-center justify-center">
         <HeaderButton
           icon={<Undo2 size={18} />}
           label="Undo"
@@ -49,12 +49,14 @@ function HeaderButton({ icon, label, onClick, color }) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-full font-poppins text-base font-semibold text-white 
+      aria-label={label}
+      title={label}
+      className={`flex items-center justify-center gap-2 p-2.5 sm:px-6 rounded-full font-poppins text-base font-semibold text-white 
       bg-linear-to-br ${color} shadow-lg shadow-black/30 backdrop-blur-sm
       hover:shadow-amber-500/30 hover:scale-105 transition-all duration-300`}
     >
       {icon}
-      <span>{label}</span>
+      <span className="hidden sm:inline">{label}</span>
     </button>
   );
 }

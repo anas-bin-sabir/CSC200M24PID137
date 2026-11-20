@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import GameViewModel from "../viewModels/GameViewModel.js";
 import Header from "./Header.jsx";
 import BoardView from "./BoardView.jsx";
+import CardDragLayer from "./CardDragLayer.jsx";
+import { isTouchDevice } from "../utils/dnd.js";
 
 // Owns the game for as long as the /game route is shown: a new game (and clock)
 // starts on entering the page and the clock stops on leaving it.
@@ -22,6 +24,7 @@ export default function GamePage() {
     <>
       <Header viewModel={viewModel} />
       <BoardView viewModel={viewModel} />
+      {isTouchDevice && <CardDragLayer />}
     </>
   );
 }
