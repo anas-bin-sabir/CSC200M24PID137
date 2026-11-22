@@ -11,12 +11,13 @@
   --card-w: min(120px, calc((100vw - 16px - 6 * var(--gap)) / 7), 17dvh);
   --card-h: calc(var(--card-w) * 1.5);
   --fan-down: calc(var(--card-h) * 0.1); /* offset below a face-down card */
-  --fan-up: calc(var(--card-h) * 0.22); /* offset below a face-up card */
+  --fan-up: calc(var(--card-h) * 0.26); /* offset below a face-up card */
 }
 
 @media (min-width: 640px) {
   :root {
     --gap: 10px;
+    --fan-up: calc(var(--card-h) * 0.22);
     --card-w: min(120px, calc((100vw - 64px - 6 * var(--gap)) / 7), 19dvh);
   }
 }

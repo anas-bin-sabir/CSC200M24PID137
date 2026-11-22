@@ -21,7 +21,6 @@ export default function CardUI({
   stack = [card],
   source = "tableau",
   isHint = false,
-  isSelected = false,
   draggable = true,
 }) {
   // Hooks must run on every render, so the null check comes after them.
@@ -45,29 +44,10 @@ export default function CardUI({
 
   if (!card) return null;
 
-  // Tap-to-move, step 1: select a card. When another card is already
-  // selected, a tap here lets the click reach the pile, which moves it.
-  const handleClick = (e) => {
+  // Click-to-move: the card (with any cards on top) goes to the best legal place
+  const handleClick = () => {
     if (!viewModel || !dragItem) return;
-    const sel = viewModel.selection;
-
-    if (sel?.card === card) {
-      e.stopPropagation();
-      viewModel.clearSelection();
-      viewModel.updateState();
-      return;
-    }
-
-    const sameColumn = sel?.source === "tableau" && sel.fromCol === columnIndex;
-    if (sel && source === "tableau" && !sameColumn) return;
-
-    e.stopPropagation();
-    viewModel.selectCard(card, {
-      source,
-      fromCol: columnIndex,
-      count: stack.length,
-    });
-    viewModel.updateState();
+    viewModel.autoMove(dragItem);
   };
 
   // Render
@@ -89,7 +69,6 @@ export default function CardUI({
       style={{
         // Only draggable cards block scrolling; touching others still scrolls the page
         touchAction: dragItem ? "none" : "auto",
-        boxShadow: isSelected ? "0 0 12px 4px rgba(255,255,0,0.8)" : "none",
       }}
     >
       <CardArt card={card} />

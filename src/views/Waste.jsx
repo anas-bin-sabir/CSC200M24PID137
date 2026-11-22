@@ -1,7 +1,7 @@
 import React from "react";
 import CardUI from "./CardUI";
 
-export default function WasteView({ waste, viewModel, selectedCard }) {
+export default function WasteView({ waste, viewModel }) {
   const hintedCard = viewModel?.hint?.card;
 
   const visibleCards = waste.slice(-3);
@@ -27,7 +27,6 @@ export default function WasteView({ waste, viewModel, selectedCard }) {
             viewModel={viewModel}
             source="waste"
             draggable={index === visibleCards.length - 1}
-            isSelected={card === selectedCard}
             isHint={
               hintedCard &&
               hintedCard.suit === card.suit &&

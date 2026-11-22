@@ -1,4 +1,5 @@
 import GameController from "../controllers/GameController.js";
+import { findFoundationIndex, isValidSequence } from "../utils/gameRules.js";
 
 export default class GameViewModel {
   constructor(setState) {
@@ -9,7 +10,6 @@ export default class GameViewModel {
     this.controller = new GameController(() => this.updateState());
 
     this.selectedCard = null;
-    this.selection = null; // { card, source, fromCol, count } for tap-to-move
     this.errorMessage = null;
     this.showVictoryModal = false;
     this.hint = null;
@@ -37,46 +37,87 @@ export default class GameViewModel {
   }
 
   /** --- CARD SELECTION --- */
-  // info describes where the card is: { source, fromCol, count }
-  selectCard(card, info = {}) {
+  selectCard(card) {
     this.selectedCard = card;
-    this.selection = card ? { card, ...info } : null;
   }
 
   clearSelection() {
     this.selectedCard = null;
-    this.selection = null;
   }
 
-  // Tap-to-move: move the selected card(s) onto a tableau column
-  // (target "tableau" with colIndex) or onto the foundation.
-  moveSelectionTo(target, colIndex) {
-    const sel = this.selection;
-    if (!sel) return;
+  /** --- MOVING A CARD TO A TARGET --- */
+  // Shared by drag-and-drop and click-to-move.
+  // item is a drag item ({ card, cards, source, fromCol }) and target is
+  // { type: "tableau", col } or { type: "foundation" }.
 
-    if (target === "tableau") {
-      if (sel.source === "tableau") {
-        if (sel.fromCol === colIndex) {
-          this.clearSelection();
-          this.updateState();
-        } else {
-          this.moveTableauToTableau(sel.fromCol, colIndex, sel.count);
-        }
-      } else if (sel.source === "waste") {
-        this.moveWasteToTableau(colIndex, sel.card);
-      }
-    } else if (target === "foundation") {
-      if (sel.source === "tableau") {
-        if (sel.count > 1) {
-          this.clearSelection();
+  // Whether the move would be legal, without making it
+  canMoveTo(item, target) {
+    const { tableau, foundation } = this.controller.getState();
+    const cards = item.cards?.length ? item.cards : [item.card];
+    if (item.source !== "tableau" && item.source !== "waste") return false;
+
+    if (target.type === "foundation") {
+      return (
+        cards.length === 1 && findFoundationIndex(cards[0], foundation) !== -1
+      );
+    }
+
+    if (item.source === "tableau" && item.fromCol === target.col) return false;
+    const dest = tableau.columns[target.col];
+    return (
+      !!dest &&
+      isValidSequence(cards) &&
+      this.controller.isValidMoveToTableau(cards[0], dest)
+    );
+  }
+
+  moveTo(item, target) {
+    const count = item.cards?.length || 1;
+
+    if (target.type === "foundation") {
+      if (item.source === "waste") {
+        this.moveWasteToFoundation(item.card);
+      } else if (item.source === "tableau") {
+        // Only a single card can go onto a foundation
+        if (count > 1) {
           this.setError("Invalid move!");
           this.updateState();
         } else {
-          this.moveTableauToFoundation(sel.fromCol);
+          this.moveTableauToFoundation(item.fromCol);
         }
-      } else if (sel.source === "waste") {
-        this.moveWasteToFoundation(sel.card);
       }
+    } else if (item.source === "waste") {
+      this.moveWasteToTableau(target.col, item.card);
+    } else if (item.source === "tableau" && item.fromCol !== target.col) {
+      this.moveTableauToTableau(item.fromCol, target.col, count);
+    }
+  }
+
+  // Click-to-move: send the card (and any cards on top of it) to the best
+  // legal place: a foundation first, then a tableau column with cards,
+  // then an empty column.
+  autoMove(item) {
+    const { tableau } = this.controller.getState();
+    const cards = item.cards?.length ? item.cards : [item.card];
+
+    const targets = [{ type: "foundation" }];
+    const emptyColumns = [];
+    tableau.columns.forEach((col, i) =>
+      (col.isEmpty() ? emptyColumns : targets).push({ type: "tableau", col: i })
+    );
+
+    // A King already at the bottom of its column gains nothing from an empty one
+    const startsColumn =
+      item.source === "tableau" &&
+      tableau.columns[item.fromCol].toArray()[0] === cards[0];
+    if (!startsColumn) targets.push(...emptyColumns);
+
+    const target = targets.find((t) => this.canMoveTo(item, t));
+    if (target) {
+      this.moveTo(item, target);
+    } else {
+      this.setError("No valid move for this card");
+      this.updateState();
     }
   }
 
@@ -120,7 +161,6 @@ export default class GameViewModel {
       time: this.controller.time,
       progress: Math.floor((completedCards / 52) * 100),
       hint: this.hint ?? null,
-      selectedCard: this.selectedCard,
       errorMessage: this.errorMessage,
       showVictoryModal: this.showVictoryModal,
     };
@@ -141,13 +181,11 @@ export default class GameViewModel {
   }
 
   drawFromStock() {
-    this.clearSelection();
     this.controller.drawFromStock();
     this.updateState();
   }
 
   recycleFromWaste() {
-    this.clearSelection();
     this.controller.recycleWaste();
     this.updateState();
   }
@@ -192,7 +230,6 @@ export default class GameViewModel {
 
   /** --- UNDO / REDO --- */
   undo() {
-    this.clearSelection();
     const success = this.controller.undoLastMove();
     if (!success) this.setError("Nothing to undo");
     else this.clearError();
@@ -200,7 +237,6 @@ export default class GameViewModel {
   }
 
   redo() {
-    this.clearSelection();
     const success = this.controller.redoLastMove();
     if (!success) this.setError("Nothing to redo");
     else this.clearError();
